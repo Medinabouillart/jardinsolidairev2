@@ -1,0 +1,135 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model avis {
+  id_avis        BigInt       @id @default(autoincrement())
+  id_utilisateur BigInt?
+  id_jardin      BigInt?
+  note           Int?
+  commentaire    String?
+  date_avis      DateTime?    @default(now()) @db.Timestamptz(6)
+  jardin         jardin?      @relation(fields: [id_jardin], references: [id_jardin], onDelete: NoAction, onUpdate: NoAction)
+  utilisateur    utilisateur? @relation(fields: [id_utilisateur], references: [id_utilisateur], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model disponibilites {
+  id_disponibilite BigInt        @id @default(autoincrement())
+  id_jardin        BigInt?
+  date_dispo       DateTime?     @db.Date
+  heure_debut      DateTime?     @db.Time(6)
+  heure_fin        DateTime?     @db.Time(6)
+  statut           String?
+  jardin           jardin?       @relation(fields: [id_jardin], references: [id_jardin], onDelete: NoAction, onUpdate: NoAction)
+  reservation      reservation[]
+}
+
+model heurescumul_es {
+  id_historique      BigInt       @id @default(autoincrement())
+  id_utilisateur     BigInt?
+  heures_travaillees Float?
+  date_maj           DateTime?    @default(now()) @db.Timestamptz(6)
+  utilisateur        utilisateur? @relation(fields: [id_utilisateur], references: [id_utilisateur], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("heurescumulées")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model jardin {
+  id_jardin        BigInt           @id @default(autoincrement())
+  id_proprietaire  BigInt           @unique
+  titre            String?
+  description      String?
+  adresse          String?
+  superficie       Float?
+  type             String?
+  besoins          String?
+  photos           Json?            @db.Json
+  date_publication DateTime?        @default(now()) @db.Timestamptz(6)
+  statut           String?
+  note_moyenne     Float?
+
+  // Relations
+  avis             avis[]
+  disponibilites   disponibilites[]
+  utilisateur      utilisateur       @relation(fields: [id_proprietaire], references: [id_utilisateur], onDelete: NoAction, onUpdate: NoAction)
+  reservation      reservation[]
+}
+
+model messagerie {
+  id_message                                          BigInt       @id @default(autoincrement())
+  id_envoyeur                                         BigInt?
+  id_destinataire                                     BigInt?
+  contenu                                             String?
+  date_envoi                                          DateTime?    @default(now()) @db.Timestamptz(6)
+  lu                                                  Boolean?     @default(false)
+  utilisateur_messagerie_id_destinataireToutilisateur utilisateur? @relation("messagerie_id_destinataireToutilisateur", fields: [id_destinataire], references: [id_utilisateur], onDelete: NoAction, onUpdate: NoAction)
+  utilisateur_messagerie_id_envoyeurToutilisateur     utilisateur? @relation("messagerie_id_envoyeurToutilisateur", fields: [id_envoyeur], references: [id_utilisateur], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model reservation {
+  id_reservation   BigInt          @id @default(autoincrement())
+  id_utilisateur   BigInt?
+  id_jardin        BigInt?
+  id_disponibilite BigInt?
+  statut           String?
+  date_reservation DateTime?       @default(now()) @db.Timestamptz(6)
+  commentaires     String?
+  disponibilites   disponibilites? @relation(fields: [id_disponibilite], references: [id_disponibilite], onDelete: NoAction, onUpdate: NoAction)
+  jardin           jardin?         @relation(fields: [id_jardin], references: [id_jardin], onDelete: NoAction, onUpdate: NoAction)
+  utilisateur      utilisateur?    @relation(fields: [id_utilisateur], references: [id_utilisateur], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model utilisateur {
+  id_utilisateur                                     BigInt           @id @default(autoincrement())
+  prenom                                             String?
+  nom                                                String?
+  email                                              String?          @unique
+  mot_de_passe                                       String?
+  role                                               String?
+  photo_profil                                       String?
+  biographie                                         String?
+  date_inscription                                   DateTime?        @default(now()) @db.Timestamptz(6)
+  telephone                                          String?
+  adresse                                            String?
+  note_moyenne                                       Float?
+
+  // Relations
+  avis                                               avis[]
+  heurescumul_es                                     heurescumul_es[]
+  jardin                                             jardin?           // 🔧 un seul jardin maximum
+  messagerie_messagerie_id_destinataireToutilisateur messagerie[]     @relation("messagerie_id_destinataireToutilisateur")
+  messagerie_messagerie_id_envoyeurToutilisateur     messagerie[]     @relation("messagerie_id_envoyeurToutilisateur")
+  reservation                                        reservation[]
+  competences                                        utilisateurCompetence[]
+  date_naissance DateTime? @db.Date
+}
+
+model competence {
+  id_competence Int                     @id @default(autoincrement())
+  nom           String                 @unique
+  utilisateurs  utilisateurCompetence[]
+}
+
+model utilisateurCompetence {
+  id_utilisateur_competence Int         @id @default(autoincrement())
+  utilisateur         utilisateur       @relation(fields: [id_utilisateur], references: [id_utilisateur])
+  id_utilisateur       BigInt
+  competence           competence       @relation(fields: [id_competence], references: [id_competence])
+  id_competence        Int
+}
