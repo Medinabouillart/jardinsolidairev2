@@ -1,0 +1,43 @@
+name: CI JardinSolidaire
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend:
+    name: Backend - Node & Express
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+      - name: Utiliser Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Installer les dépendances backend
+        run: npm install
+
+  frontend:
+    name: Frontend - Next.js
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+      - name: Utiliser Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Installer les dépendances frontend
+        run: npm install
+      - name: Vérifier le build Next.js
+        run: npm run build
+
