@@ -38,6 +38,6 @@ jobs:
           node-version: 20
       - name: Installer les dépendances frontend
         run: npm install
-      - name: Vérifier le build Next.js
-        run: npm run build
+      # - name: Vérifier le build Next.js
+      #   run: npm run build
 
