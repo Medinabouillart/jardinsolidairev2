@@ -2,38 +2,62 @@
 
 import { useEffect, useState } from 'react'
 
-export default function BoutonAvecConnexion({ jardinierId }) {
+export default function BoutonAvecConnexion({ jardinierId, jardinier }) {
   const [isConnected, setIsConnected] = useState(false)
-  const [nextUrl, setNextUrl] = useState('/')
+  const [currentPath, setCurrentPath] = useState('/')
 
   useEffect(() => {
     try {
-      const token = localStorage.getItem('token')
-      const raw = localStorage.getItem('utilisateur') || localStorage.getItem('user')
-      const u = raw ? JSON.parse(raw) : null
-      const hasCookie =
-        typeof document !== 'undefined' &&
-        /(?:^|;\s*)(jwt|token|auth|session)=/.test(document.cookie)
-
-      const hasUserId = !!(u && (u.id_utilisateur || u.id))
-      setIsConnected(Boolean(token || hasCookie || hasUserId))
-
       if (typeof window !== 'undefined') {
-        setNextUrl(window.location.pathname)
+        const token = localStorage.getItem('token')
+        const raw =
+          localStorage.getItem('utilisateur') || localStorage.getItem('user')
+        const u = raw ? JSON.parse(raw) : null
+        const hasCookie =
+          /(?:^|;\s*)(jwt|token|auth|session)=/.test(document.cookie)
+
+        setIsConnected(Boolean(token || (u && u.id_utilisateur) || hasCookie))
+        setCurrentPath(window.location.pathname)
       }
-    } catch {
+    } catch (e) {
+      console.error('[BoutonAvecConnexion] erreur lecture session', e)
       setIsConnected(false)
     }
   }, [])
 
   const handleClick = () => {
-    if (!isConnected) return
-    window.location.href = `/messages/nouveau?to=${encodeURIComponent(jardinierId)}`
+    if (!jardinierId) return
+
+    // ❌ pas connecté → on redirige vers connexion
+    if (!isConnected) {
+      const next = encodeURIComponent(currentPath)
+      window.location.href = `/connexion?next=${next}`
+      return
+    }
+
+    // ✅ connecté → on construit l’URL vers /messages
+    const params = new URLSearchParams()
+    params.set('to', String(jardinierId))
+
+    if (jardinier) {
+      if (jardinier.prenom) params.set('prenom', jardinier.prenom)
+      if (jardinier.nom) params.set('nom', jardinier.nom)
+      if (jardinier.ville) params.set('ville', jardinier.ville)
+      if (jardinier.photo_profil) params.set('avatar', jardinier.photo_profil)
+
+      const displayName = [jardinier.prenom, jardinier.nom]
+        .filter(Boolean)
+        .join(' ')
+      if (displayName) {
+        params.set('displayName', displayName)
+      }
+    }
+
+    window.location.href = `/messages?${params.toString()}`
   }
 
   return (
     <div className="mt-6">
-      {/* Message au-dessus si pas connecté */}
       {!isConnected && (
         <p className="text-sm text-gray-600 mb-2">
           Vous devez être connecté pour envoyer un message.
@@ -42,27 +66,11 @@ export default function BoutonAvecConnexion({ jardinierId }) {
 
       <button
         type="button"
-        onClick={isConnected ? handleClick : undefined}
-        disabled={!isConnected}
-        className={`px-6 py-2 rounded-full font-semibold transition duration-200 ${
-          isConnected
-            ? 'bg-[#e3107d] text-white hover:bg-pink-700'
-            : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-        }`}
+        onClick={handleClick}
+        className="px-6 py-2 rounded-full font-semibold transition duration-200 bg-[#e3107d] text-white hover:bg-pink-700"
       >
-        Envoyer un message
+        Contacter ce jardinier
       </button>
-
-      {!isConnected && (
-        <p className="text-sm text-gray-600 italic mt-2">
-          <a
-            href={`/connexion?next=${encodeURIComponent(nextUrl)}`}
-            className="text-[#e3107d] underline"
-          >
-            Cliquez ici pour vous connecter / créer un compte
-          </a>
-        </p>
-      )}
     </div>
   )
 }

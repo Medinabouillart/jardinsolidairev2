@@ -4,7 +4,9 @@ import Link from 'next/link'
 
 const ListeJardiniers = () => {
   const [jardiniers, setJardiniers] = useState([])
-  const [favoris, setFavoris] = useState([])
+
+  // 🔕 Favoris désactivé pour l’instant
+  // const [favoris, setFavoris] = useState([])
 
   // Filtres (CP strict seulement)
   const [search, setSearch]   = useState('')
@@ -25,9 +27,10 @@ const ListeJardiniers = () => {
       .catch(() => setJardiniers([]))
   }, [search, noteMin, type, cp])
 
-  const toggleFavori = (id) => {
-    setFavoris(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
-  }
+  // 🔕 Favoris désactivé
+  // const toggleFavori = (id) => {
+  //   setFavoris(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  // }
 
   const resetAll = () => {
     setSearch(''); setNoteMin(''); setType(''); setCp('')
@@ -110,7 +113,9 @@ const ListeJardiniers = () => {
       ) : (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           {jardiniers.map((j) => {
-            const isFav = favoris.includes(j.id_utilisateur)
+            // 🔕 Favoris désactivé
+            // const isFav = favoris.includes(j.id_utilisateur)
+
             return (
               <div
                 key={j.id_utilisateur}
@@ -124,6 +129,8 @@ const ListeJardiniers = () => {
                       alt={`${j.prenom ?? ''} ${j.nom ?? ''}`}
                       className="h-full w-full object-cover"
                     />
+
+                    {/* 🔕 Bouton cœur / favoris temporairement désactivé
                     <button
                       onClick={() => toggleFavori(j.id_utilisateur)}
                       className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 text-xl leading-none transition hover:scale-110"
@@ -131,6 +138,8 @@ const ListeJardiniers = () => {
                     >
                       {isFav ? <span className="text-[#e3107d]">♥</span> : <span className="text-gray-400">♡</span>}
                     </button>
+                    */}
+
                     {j.visibility === 'dm_only' && (
                       <span className="absolute left-2 top-2 rounded-full border border-gray-300 bg-white/90 px-2 py-0.5 text-[11px] text-gray-600">
                         🔒 Privé
@@ -168,17 +177,16 @@ const ListeJardiniers = () => {
 
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
                       <span>📍 {j.ville || j.adresse || 'Ville n/r'}</span>
-                      
                     </div>
 
                     <div className="mt-3 flex items-center justify-end">
-                    <Link
-                      href={`/reservation_jardiniers/${j.id_utilisateur}`}
-                      className="rounded-full border border-[#e3107d] bg-white px-5 py-2 text-sm font-medium text-[#e3107d] transition hover:bg-[#e3107d] hover:text-white"
-                    >
-                      En savoir plus
-                    </Link>
-                  </div>
+                      <Link
+                        href={`/reservation_jardiniers/${j.id_utilisateur}`}
+                        className="rounded-full border border-[#e3107d] bg-white px-5 py-2 text-sm font-medium text-[#e3107d] transition hover:bg-[#e3107d] hover:text-white"
+                      >
+                        En savoir plus
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>

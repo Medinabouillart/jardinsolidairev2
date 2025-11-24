@@ -5,32 +5,46 @@ const { Pool } = require('pg');
 const router = express.Router();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+/**
+ * Mappe le nom de compétence (en base) vers le "type" utilisé dans le front
+ * ex : "Jardin potager 🍅" → "potager"
+ */
+const mapNomToType = (nom) => {
+  if (!nom) return null;
+  const n = nom.toLowerCase();
+
+  if (n.includes('potager')) return 'potager';
+  if (n.includes('fleur')) return 'fleurs';
+  if (n.includes('permaculture')) return 'permaculture';
+  if (n.includes('tonte') || n.includes('pelouse')) return 'tondre';
+  if (n.includes('apprentissage') || n.includes('transmission')) return 'jardinage';
+
+  return null;
+};
+
 // Construit WHERE dynamique (CP strict si fourni)
-function buildWhere({ search, note, type, cp }) {
+function buildWhere({ search, note, cp }) {
   const clauses = [
-    `role = 'ami_du_vert'`,
-    `is_posted = TRUE`,
-    `visibility = 'public'`,
-    `NOT (lower(prenom) = 'mahalia' AND lower(nom) = 'bouillart')`
+    `u.role = 'ami_du_vert'`,
+    `u.is_posted = TRUE`,
+    `u.visibility = 'public'`,
+    `NOT (lower(u.prenom) = 'mahalia' AND lower(u.nom) = 'bouillart')`
   ];
   const values = [];
   let i = 1;
 
   if (search) {
-    clauses.push(`(prenom ILIKE $${i} OR nom ILIKE $${i} OR biographie ILIKE $${i} OR adresse ILIKE $${i} OR ville ILIKE $${i})`);
+    clauses.push(
+      `(u.prenom ILIKE $${i} OR u.nom ILIKE $${i} OR u.biographie ILIKE $${i} OR u.adresse ILIKE $${i} OR u.ville ILIKE $${i})`
+    );
     values.push(`%${search}%`); i++;
   }
   if (note) {
-    clauses.push(`note_moyenne >= $${i}`);
+    clauses.push(`u.note_moyenne >= $${i}`);
     values.push(parseFloat(note)); i++;
   }
-  if (type) {
-    // en attendant une vraie table de compétences
-    clauses.push(`biographie ILIKE $${i}`);
-    values.push(`%${type}%`); i++;
-  }
   if (cp) {
-    clauses.push(`code_postal = $${i}`);
+    clauses.push(`u.code_postal = $${i}`);
     values.push(cp); i++;
   }
 
@@ -44,29 +58,39 @@ function buildWhere({ search, note, type, cp }) {
 router.get('/', async (req, res) => {
   try {
     const { search = '', note = '', type = '', cp = '' } = req.query;
-    const { whereSql, values } = buildWhere({ search, note, type, cp });
+    const { whereSql, values } = buildWhere({ search, note, cp });
 
     const sql = `
       SELECT
-        id_utilisateur::text AS id_utilisateur,
-        prenom, nom, biographie, telephone,
-        adresse, ville, code_postal,
-        latitude, longitude,
-        note_moyenne, photo_profil,
-        visibility, is_posted,
+        u.id_utilisateur::text AS id_utilisateur,
+        u.prenom, u.nom, u.biographie, u.telephone,
+        u.adresse, u.ville, u.code_postal,
+        u.latitude, u.longitude,
+        u.note_moyenne, u.photo_profil,
+        u.visibility, u.is_posted,
         CASE
-          WHEN date_naissance IS NOT NULL
-          THEN EXTRACT(year FROM age(CURRENT_DATE, date_naissance))::int
+          WHEN u.date_naissance IS NOT NULL
+          THEN EXTRACT(year FROM age(CURRENT_DATE, u.date_naissance))::int
           ELSE NULL
-        END AS age
-      FROM public.utilisateur
+        END AS age,
+        COALESCE(
+          array_agg(DISTINCT c.nom) FILTER (WHERE c.nom IS NOT NULL),
+          '{}'::text[]
+        ) AS competences
+      FROM public.utilisateur u
+      LEFT JOIN "utilisateurCompetence" uc
+        ON uc.id_utilisateur = u.id_utilisateur
+      LEFT JOIN competence c
+        ON c.id_competence = uc.id_competence
       WHERE ${whereSql}
-      ORDER BY note_moyenne DESC NULLS LAST, nom ASC, prenom ASC;
+      GROUP BY u.id_utilisateur
+      ORDER BY u.note_moyenne DESC NULLS LAST, u.nom ASC, u.prenom ASC;
     `;
+
     const { rows } = await pool.query(sql, values);
 
     // Adapter la forme au front
-    const payload = rows.map(r => ({
+    let payload = rows.map(r => ({
       id_utilisateur: r.id_utilisateur,
       prenom: r.prenom,
       nom: r.nom,
@@ -82,10 +106,21 @@ router.get('/', async (req, res) => {
       age: r.age,
       visibility: r.visibility,
       is_posted: r.is_posted,
-      // champs tolérés par le front
-      competences: [],
+      competences: r.competences || [],
       distance_km: null
     }));
+
+    // 🔹 Filtre "type" basé sur les compétences stockées
+    if (type) {
+      const wanted = String(type).toLowerCase();
+      payload = payload.filter(j => {
+        if (!Array.isArray(j.competences)) return false;
+        const types = j.competences
+          .map(mapNomToType)   // "Jardin potager 🍅" → "potager"
+          .filter(Boolean);
+        return types.includes(wanted);
+      });
+    }
 
     res.json(payload);
   } catch (err) {
@@ -96,12 +131,6 @@ router.get('/', async (req, res) => {
 
 /**
  * GET /api/jardiniers/:id/disponibilites
- * Retourne les disponibilités du jardinier avec un flag "disponible"
- * (false si un créneau est déjà réservé dans la table reservation)
- *
- * ⚠️ Hypothèses de schéma :
- * - disponibilite_jardinier(id_utilisateur, date_disponible, heure_debut, heure_fin, jour_semaine, actif)
- * - reservation(id_utilisateur, date_reservation TIMESTAMP, ...)
  */
 router.get('/:id/disponibilites', async (req, res) => {
   const { id } = req.params;

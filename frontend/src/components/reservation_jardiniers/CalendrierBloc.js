@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
 import format from 'date-fns/format'
 import parse from 'date-fns/parse'
 import startOfWeek from 'date-fns/startOfWeek'
 import getDay from 'date-fns/getDay'
+import startOfDay from 'date-fns/startOfDay'
+import endOfDay from 'date-fns/endOfDay'
 import fr from 'date-fns/locale/fr'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 
@@ -18,7 +20,9 @@ export default function CalendrierBloc({ jardinierId }) {
   const [error, setError] = useState('')
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [isConnected, setIsConnected] = useState(false)
+  const [range, setRange] = useState(null)
 
+  // Connexion
   useEffect(() => {
     try {
       const token = localStorage.getItem('token')
@@ -34,8 +38,20 @@ export default function CalendrierBloc({ jardinierId }) {
     }
   }, [])
 
+  // Calcule la plage visible
+  const handleRangeChange = useCallback((r) => {
+    if (Array.isArray(r) && r.length) {
+      const from = startOfDay(r[0])
+      const to = endOfDay(r[r.length - 1])
+      setRange({ from, to })
+    } else if (r && r.start && r.end) {
+      setRange({ from: startOfDay(r.start), to: endOfDay(r.end) })
+    }
+  }, [])
+
+  // Fetch dispos datées (utilise from/to)
   useEffect(() => {
-    if (!jardinierId) return
+    if (!jardinierId || !range) return
     const controller = new AbortController()
 
     ;(async () => {
@@ -43,19 +59,18 @@ export default function CalendrierBloc({ jardinierId }) {
         setLoading(true)
         setError('')
 
-        // --- récupérer les disponibilités depuis le backend ---
-        const dispoRes = await fetch(
-          `http://localhost:5001/api/reservation_jardiniers/${encodeURIComponent(
-            jardinierId
-          )}/disponibilites`,
-          { signal: controller.signal }
-        )
-        if (!dispoRes.ok) throw new Error(`HTTP ${dispoRes.status}`)
-        const dispos = await dispoRes.json()
+        const fromStr = format(range.from, 'yyyy-MM-dd')
+        const toStr = format(range.to, 'yyyy-MM-dd')
+        const url = `http://localhost:5001/api/reservation_jardiniers/${encodeURIComponent(
+          jardinierId
+        )}/disponibilites?from=${fromStr}&to=${toStr}`
 
-        // ✅ Ici on utilise directement start / end envoyés par la route
-        const dispoEvents = Array.isArray(dispos)
-          ? dispos.map(d => ({
+        const res = await fetch(url, { signal: controller.signal })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const rows = await res.json()
+
+        const dispoEvents = Array.isArray(rows)
+          ? rows.map((d) => ({
               id: `dispo-${d.id_dispo}-${d.start}`,
               title: `${format(new Date(d.start), 'HH:mm')} - ${format(
                 new Date(d.end),
@@ -81,7 +96,16 @@ export default function CalendrierBloc({ jardinierId }) {
     })()
 
     return () => controller.abort()
-  }, [jardinierId])
+  }, [jardinierId, range])
+
+  // Plage initiale = semaine en cours
+  useEffect(() => {
+    const today = new Date()
+    const weekStart = startOfWeek(today, { weekStartsOn: 1, locale: fr })
+    const from = startOfDay(weekStart)
+    const to = endOfDay(new Date(from.getTime() + 6 * 24 * 60 * 60 * 1000))
+    setRange({ from, to })
+  }, [])
 
   return (
     <div className="bg-white dark:bg-zinc-800 p-6 rounded shadow-md">
@@ -94,8 +118,9 @@ export default function CalendrierBloc({ jardinierId }) {
         endAccessor="end"
         style={{ height: 500 }}
         views={['month', 'week', 'day']}
-        onSelectEvent={event => setSelectedEvent(event)}
-        eventPropGetter={event => {
+        onRangeChange={handleRangeChange}
+        onSelectEvent={setSelectedEvent}
+        eventPropGetter={(event) => {
           if (event.type === 'dispo') {
             return {
               style: {
@@ -128,8 +153,7 @@ export default function CalendrierBloc({ jardinierId }) {
       {selectedEvent && (
         <div className="mt-5 p-4 border rounded bg-pink-50 text-gray-800">
           <p>
-            Disponible de{' '}
-            <strong>{format(selectedEvent.start, 'HH:mm')}</strong> à{' '}
+            Disponible de <strong>{format(selectedEvent.start, 'HH:mm')}</strong> à{' '}
             <strong>{format(selectedEvent.end, 'HH:mm')}</strong>
           </p>
           <button

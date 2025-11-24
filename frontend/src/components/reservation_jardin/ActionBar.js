@@ -1,14 +1,12 @@
+// src/components/reservation_jardin/ActionBar.js
 'use client'
 
 import { useEffect, useState } from 'react'
 import { Share2 /*, Heart*/ } from 'lucide-react'
 
-/**
- * props:
- * - jardinierId (obligatoire)
- */
-export default function ActionBar({ jardinierId }) {
-  // 🔕 Favoris désactivé
+/** Identique à l’ActionBar des jardiniers, adapté pour un JARDIN */
+export default function ActionBar({ jardinId }) {
+  // 🔕 Favoris désactivé pour l’instant
   // const [liked, setLiked] = useState(false)
   // const [userId, setUserId] = useState(null)
   // const [busy, setBusy] = useState(false)
@@ -27,25 +25,26 @@ export default function ActionBar({ jardinierId }) {
 
   // 🔕 Favoris désactivé : hydratation depuis la DB
   // useEffect(() => {
-  //   if (!userId || !jardinierId) return
+  //   if (!userId || !jardinId) return
   //   ;(async () => {
   //     try {
   //       const res = await fetch(`http://localhost:5001/api/favoris/ids?user_id=${userId}`, { cache: 'no-store' })
   //       if (!res.ok) return
   //       const ids = await res.json()
-  //       setLiked(ids.includes(Number(jardinierId)))
+  //       setLiked(ids.includes(Number(jardinId)))
   //     } catch {}
   //   })()
-  // }, [userId, jardinierId])
+  // }, [userId, jardinId])
 
   // 🔕 Favoris désactivé : handler
   // const handleLike = async () => {}
 
   const handleShare = () => {
+    const shareData = { title: 'Découvrez ce jardin', url: window.location.href }
     if (navigator.share) {
-      navigator.share({ title: 'Découvrez ce jardinier', url: window.location.href }).catch(() => {})
+      navigator.share(shareData).catch(() => {})
     } else {
-      navigator.clipboard.writeText(window.location.href)
+      navigator.clipboard.writeText(shareData.url)
       alert('Lien copié dans le presse-papiers !')
     }
   }

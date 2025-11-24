@@ -23,7 +23,12 @@ export default function PageJardinier() {
     let mounted = true
     const run = async () => {
       try {
-        const res = await fetch(`http://localhost:5001/api/reservation_jardiniers/${encodeURIComponent(id)}`, { cache: 'no-store' })
+        const res = await fetch(
+          `http://localhost:5001/api/reservation_jardiniers/${encodeURIComponent(
+            id
+          )}`,
+          { cache: 'no-store' }
+        )
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const json = await res.json()
         if (mounted) setData(json)
@@ -34,7 +39,9 @@ export default function PageJardinier() {
       }
     }
     if (id) run()
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+    }
   }, [id])
 
   return (
@@ -55,17 +62,25 @@ export default function PageJardinier() {
             />
             <div>
               <h1 className="text-2xl font-bold">
-                {loading ? 'Chargement…' : `${data?.prenom ?? ''} ${data?.nom ?? ''}`}
+                {loading
+                  ? 'Chargement…'
+                  : `${data?.prenom ?? ''} ${data?.nom ?? ''}`}
               </h1>
               <p className="mt-1 text-sm text-gray-700 flex flex-wrap items-center gap-2">
                 <span>
-                  {loading ? '—' : (data?.ville || data?.adresse || 'Ville n/r')}
+                  {loading
+                    ? '—'
+                    : data?.ville || data?.adresse || 'Ville n/r'}
                   {data?.code_postal ? ` (${data.code_postal})` : ''}
                 </span>
                 {data?.note_moyenne != null && (
                   <span className="inline-flex items-center gap-1">
-                    <span className="text-amber-500" aria-hidden>⭐</span>
-                    <span className="text-gray-800">{data.note_moyenne}</span>
+                    <span className="text-amber-500" aria-hidden>
+                      ⭐
+                    </span>
+                    <span className="text-gray-800">
+                      {data.note_moyenne}
+                    </span>
                   </span>
                 )}
                 {data?.age && <span>• Âge {data.age}</span>}
@@ -76,7 +91,9 @@ export default function PageJardinier() {
         </div>
 
         {error && (
-          <div className="rounded-md border border-red-300 bg-red-50 text-red-700 px-4 py-3">{error}</div>
+          <div className="rounded-md border border-red-300 bg-red-50 text-red-700 px-4 py-3">
+            {error}
+          </div>
         )}
 
         {/* 2 colonnes : gauche (À propos + compétences + bouton) / droite (calendrier) */}
@@ -86,13 +103,15 @@ export default function PageJardinier() {
             <section className="p-5 rounded-2xl shadow bg-white text-gray-800 min-h-[560px]">
               <h2 className="text-xl font-semibold mb-3">À propos</h2>
               <p className="leading-relaxed">
-                {data?.biographie || (loading ? 'Chargement…' : 'Pas encore de description.')}
+                {data?.biographie ||
+                  (loading ? 'Chargement…' : 'Pas encore de description.')}
               </p>
 
               <hr className="my-5" />
 
               <h3 className="text-lg font-semibold mb-2">Compétences</h3>
-              {Array.isArray(data?.competences) && data.competences.length > 0 ? (
+              {Array.isArray(data?.competences) &&
+              data.competences.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {data.competences.map((c, i) => (
                     <span
@@ -104,11 +123,20 @@ export default function PageJardinier() {
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-600">{loading ? 'Chargement…' : 'Aucune compétence renseignée.'}</p>
+                <p className="text-sm text-gray-600">
+                  {loading
+                    ? 'Chargement…'
+                    : 'Aucune compétence renseignée.'}
+                </p>
               )}
             </section>
 
-            {id && <BoutonAvecConnexion jardinierId={id} />}
+            {id && (
+              <BoutonAvecConnexion
+                jardinierId={id}
+                jardinier={data}
+              />
+            )}
           </div>
 
           {/* Calendrier → droite */}
